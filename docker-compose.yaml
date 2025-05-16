@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  zookeeper:
+    image: bitnami/zookeeper:3.9 # Pinned version
+    ports:
+      - "2181:2181"
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+
+  kafka:
+    image: bitnami/kafka:3.6 # Pinned version
+    ports:
+      - "9092:9092" # For OUTSIDE access from your host machine
+    environment:
+      # === Disable KRaft mode and use Zookeeper ===
+      - KAFKA_ENABLE_KRAFT=no
+
+      # Kafka Broker ID for Zookeeper mode
+      - KAFKA_CFG_BROKER_ID=1
+
+      # Zookeeper Connection
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
+
+      # Listener Configuration
+      - KAFKA_CFG_LISTENERS=INSIDE://0.0.0.0:9093,OUTSIDE://0.0.0.0:9092
+      - KAFKA_CFG_ADVERTISED_LISTENERS=INSIDE://kafka:9093,OUTSIDE://localhost:9092
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=INSIDE
+
+      # Topic Creation
+      - KAFKA_CREATE_TOPICS="my-topic:1:1"
+
+      # Acknowledge PLAINTEXT for dev
+      - KAFKA_ALLOW_PLAINTEXT_LISTENER=yes
+    # volumes: # Likely not needed unless you have a specific use case
+    #   - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - zookeeper
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest # Or pin to a specific version e.g., provectuslabs/kafka-ui:v0.7.1
+    ports:
+      - "8080:8080" # Host port 8080 maps to container port 8080
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local-kafka-cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9093 # Kafka UI will connect to Kafka using its internal listener
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181    # Zookeeper address for Kafka UI (optional for some features, but good to have)
+      # KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8085 # If you add Schema Registry
+      # KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME: connect-cluster
+      # KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: http://kafka-connect:8083 # If you add Kafka Connect
+    depends_on:
+      - kafka # Ensure Kafka (and thus Zookeeper) are up before Kafka UI tries to connect

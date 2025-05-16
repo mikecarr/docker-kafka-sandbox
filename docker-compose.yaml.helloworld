@@ -1,0 +1,4 @@
+services:
+  hello_world:
+    image: ubuntu
+    command: [/bin/echo, 'Hello world']
